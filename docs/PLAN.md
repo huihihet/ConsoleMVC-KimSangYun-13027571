@@ -79,15 +79,30 @@ interface SampleRepository {
 
 ### 2-4. 단위 테스트 (`SampleTest`, `InMemorySampleRepositoryTest`)
 
+**테스트 픽스처**: 각 테스트 클래스에 `@BeforeEach`로 공통 `Sample` 객체를 초기화한다.
+`InMemorySampleRepository`는 매 테스트마다 새 인스턴스를 생성해 테스트 간 상태 오염을 방지한다.
+
+**placeholder 처리**: Phase 1의 `placeholder()` 메서드는 Phase 2 시작 시 삭제하고 아래 케이스들로 교체한다.
+
+**Phase 1 → Phase 2 전환 절차**: `SampleRepository` 인터페이스에 메서드를 추가하는 순간
+`InMemorySampleRepository`의 컴파일이 실패한다. 다음 순서로 진행한다:
+1. `SampleRepository` 인터페이스에 메서드 시그니처 추가
+2. 즉시 `InMemorySampleRepository`에 빈 구현(`return null` / `return false`) 추가 → 컴파일 통과
+3. 구현 내용을 채운 뒤 테스트 작성
+
 | 테스트 케이스 | 검증 내용 |
 |--------------|-----------|
 | 정상 생성 | 모든 필드 저장 확인 |
-| 수율 범위 위반 | `IllegalArgumentException` 발생 |
+| 수율 범위 위반 (`yield < 0.0`, `yield > 1.0`) | `IllegalArgumentException` 발생 |
+| 수율 하한 경계값 (`yield = 0.0`) | `IllegalArgumentException` 발생 (0.0 초과 조건) |
+| 수율 상한 경계값 (`yield = 1.0`) | 정상 생성 |
 | 생산 시간 0 이하 | `IllegalArgumentException` 발생 |
 | 재고 음수 | `IllegalArgumentException` 발생 |
+| 이름 공백·빈 문자열 | `IllegalArgumentException` 발생 |
 | save → findById | 저장 후 조회 일치 |
 | findAll | 전체 목록 반환 |
-| findByNameContaining | 키워드 포함 시료만 반환 |
+| findByNameContaining (키워드 포함) | 해당 시료만 반환 |
+| findByNameContaining (빈 문자열 `""`) | 전체 시료 반환 |
 | update | 수정 후 findById로 변경 확인 |
 | deleteById (존재) | `true` 반환 + 조회 불가 |
 | deleteById (미존재) | `false` 반환 |
@@ -103,6 +118,16 @@ interface SampleRepository {
 ## Phase 3. Controller · View 구현 `> PRD 마일스톤: M3`
 
 **목표**: 사용자 입력을 파싱하고 Model을 호출한 뒤 View에 결과를 위임하는 레이어를 구현한다.
+
+### 3-0. `build.gradle` 의존성 추가 (Phase 3 시작 시 선행)
+
+`SampleControllerTest`에서 `SampleView`를 Mock/Spy로 주입하려면 Mockito가 필요하다.
+Phase 3 구현 전에 `build.gradle`의 `dependencies` 블록에 아래를 추가한다:
+
+```groovy
+testImplementation 'org.mockito:mockito-core:5.+'
+testImplementation 'org.mockito:mockito-junit-jupiter:5.+'
+```
 
 ### 3-1. `SampleView`
 

@@ -1,0 +1,9 @@
+package org.example.model.repository;
+
+import org.example.model.entity.Sample;
+import java.util.List;
+import java.util.Optional;
+
+public interface SampleRepository {
+    // Phase 2에서 구현
+}

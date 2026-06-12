@@ -23,6 +23,8 @@ dependencies {
     testImplementation platform('org.junit:junit-bom:6.0.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'org.mockito:mockito-core:5.+'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.+'
 }
 
 // Windows CP949 환경에서 Gradle Worker @args 파일 내 한글 경로가 깨지는 문제 우회:

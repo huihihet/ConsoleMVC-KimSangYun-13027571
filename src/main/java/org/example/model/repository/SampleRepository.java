@@ -5,5 +5,10 @@ import java.util.List;
 import java.util.Optional;
 
 public interface SampleRepository {
-    // Phase 2에서 구현
+    Sample           save(Sample sample);
+    List<Sample>     findAll();
+    Optional<Sample> findById(Long id);
+    List<Sample>     findByNameContaining(String keyword);
+    boolean          update(Sample sample);
+    boolean          deleteById(Long id);
 }

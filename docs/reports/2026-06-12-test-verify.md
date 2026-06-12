@@ -1,89 +1,181 @@
 # 테스트 전략 검증 보고서
 
 **일시**: 2026-06-12  
-**검증 대상**: docs/design/phase1.md (Phase 1 스켈레톤 구현)  
-**결과**: ❌ 미흡 6건 (CRITICAL: 1, WARNING: 5)
+**검증 대상**: docs/design/phase2.md (Phase 2 Model 구현)  
+**결과**: ❌ 미흡 7건 (CRITICAL: 2, WARNING: 5)
 
 ---
 
 ## 발견된 문제
 
-### [CRITICAL-1] Phase 3 Controller 테스트에서 필요한 Mockito 의존성 계획 누락
+### [CRITICAL-1] Sample.java 커버리지 80% 미달 위험 — updateAvgProductionTime / updateStock 예외 경로 미테스트
 
-- **대상 기능**: `SampleControllerTest` (Phase 3 구현 예정)
-- **문제**: `CLAUDE.md` 및 `PLAN.md Phase 3-3`은 `SampleControllerTest`에서 "Spy/Mock `SampleView` 주입"을 명시한다. 그러나 `build.gradle`에는 Mockito 의존성이 없고, 어느 phase 설계 문서에도 Mockito(또는 대안 Mock 라이브러리) 추가 시점이 기술되어 있지 않다. JUnit Jupiter 6.x는 Mockito 자동 통합을 제공하지 않으므로, Phase 3에서 테스트를 작성하는 시점에 `build.gradle` 수정이 필요해지는데 그 계획이 없다. 현재 Phase 1 `build.gradle`이 완료 상태로 간주되면 Phase 2~3 설계 문서에서 이 누락이 발견되지 않고 넘어갈 위험이 크다.
-- **권장 테스트 / 조치**:
-  - Phase 2 또는 Phase 3 설계 문서에 `build.gradle` 의존성 추가 항목을 명시한다.
-    ```groovy
-    testImplementation 'org.mockito:mockito-core:5.x'
-    testImplementation 'org.mockito:mockito-junit-jupiter:5.x'
-    ```
-  - 또는 Mockito 없이 수동 Spy(익명 서브클래스 또는 `ByteArrayOutputStream` 캡처)로 대체한다면, `SampleViewTest`에 이미 사용되는 `ByteArrayOutputStream` 방식으로 통일함을 명시한다.
-
----
-
-### [WARNING-1] SampleFlowIntegrationTest 패키지가 main 미러링 규칙 위반
-
-- **대상 기능**: `SampleFlowIntegrationTest`
-- **문제**: `CLAUDE.md`는 "src/test/java/org/example/ — main과 미러링된 패키지 구조"를 규정한다. 그런데 `SampleFlowIntegrationTest`는 `org.example.integration` 패키지에 위치하며, `src/main/java/org/example/` 하위에 `integration/` 패키지는 존재하지 않는다. 이는 미러링 원칙의 예외로, 규칙 위반 또는 의도적 예외 중 어느 쪽인지 문서에 명시되어 있지 않다.
-- **권장 조치**:
-  - 통합 테스트는 특성상 특정 main 패키지와 1:1 대응이 어렵다. `CLAUDE.md` 또는 phase1.md 섹션 3에 "통합 테스트는 `org.example.integration` 패키지에 예외적으로 위치한다"는 한 줄 주석을 추가하여 의도적 예외임을 명확히 한다.
-
----
-
-### [WARNING-2] Phase 2 엣지케이스 중 경계 정확값과 공백 입력 케이스 누락
-
-- **대상 기능**: `SampleTest`, `InMemorySampleRepositoryTest` (Phase 2 구현 예정)
-- **문제**: `PLAN.md Phase 2-4` 단위 테스트 표에는 "수율 범위 위반", "생산 시간 0 이하", "재고 음수" 케이스가 있으나, 다음 경계값 케이스가 누락되어 있다.
-  1. `yield = 0.0` (경계값 — 0.0은 허용인지 불허인지 정의 불명확: PRD는 "0.0 초과"로 명시하나 테스트 케이스에 반영 안 됨)
-  2. `yield = 1.0` (상한 경계값 — 허용이나 테스트 케이스 없음)
-  3. `name`이 공백 문자열(`""`) 또는 공백만으로 구성된 문자열(`"   "`) 입력 (PRD는 "공백 불허"로 명시)
-  4. `findByNameContaining("")` — 빈 문자열 키워드 전달 시 전체 반환 여부
-- **권장 테스트**: Phase 2 설계 문서 테스트 케이스 표에 다음 4건을 추가한다.
-  ```
-  | yield = 0.0 입력          | IllegalArgumentException 발생 |
-  | yield = 1.0 입력          | 정상 생성 (상한 포함 허용 확인) |
-  | name = "" 또는 "   " 입력 | IllegalArgumentException 발생 |
-  | findByNameContaining("") | 전체 목록 반환 또는 빈 목록 — 명세 결정 후 테스트 |
-  ```
-
----
-
-### [WARNING-3] Phase 2 구현 시 InMemorySampleRepository 컴파일 변경으로 인한 Phase 1 placeholder 테스트 깨짐 위험 — regression 계획 없음
-
-- **대상 기능**: `InMemorySampleRepositoryTest`, `SampleRepository` 인터페이스
-- **문제**: 현재 `SampleRepository` 인터페이스는 메서드 없이 빈 상태이고, `InMemorySampleRepository`는 이를 구현한다. Phase 2에서 `SampleRepository`에 `save`, `findAll` 등 6개 메서드를 추가하면 `InMemorySampleRepository`에 즉시 미구현 메서드가 생겨 컴파일이 실패하고, Phase 1 placeholder 테스트 전체가 깨진다. 이 전환 시점의 regression 처리 계획(예: Phase 2 작업 착수 전 placeholder 교체 절차)이 설계 문서에 없다.
-- **권장 조치**: Phase 2 설계 문서 작업 목록 첫 항목으로 "기존 placeholder 테스트를 Phase 2 케이스로 교체 후 컴파일 확인"을 명시한다. 또는 Phase 1 완료 기준에 "Phase 2 시작 전 SampleRepository 인터페이스는 비어 있어야 함"을 체크리스트에 추가한다.
-
----
-
-### [WARNING-4] Phase 2 단위 테스트용 공통 픽스처(@BeforeEach) 계획 부재
-
-- **대상 기능**: `SampleTest`, `InMemorySampleRepositoryTest`
-- **문제**: `PLAN.md Phase 2-4`의 10개 테스트 케이스 중 "save → findById", "findAll", "findByNameContaining", "update", "deleteById" 5개는 사전에 저장된 `Sample` 객체를 전제한다. 그러나 설계 문서에는 각 테스트가 공유할 `Sample` 인스턴스 생성 픽스처(`@BeforeEach`)에 대한 언급이 없다. 픽스처 계획이 없으면 Phase 2 구현자가 각 테스트마다 중복 초기화 코드를 작성하거나, 상태 공유로 인한 테스트 격리 오염이 발생할 수 있다.
-- **권장 테스트**: Phase 2 설계 문서에 다음 픽스처 패턴을 명시한다.
+- **대상 기능**: `Sample.updateAvgProductionTime()`, `Sample.updateStock()`
+- **문제**: `SampleTest`에는 `updateYield(0.0)` 과 `updateName("")` 예외 케이스만 존재한다.
+  `updateAvgProductionTime()` 과 `updateStock()` 은 각각 예외 분기(`< 1`, `< 0`)를 포함하지만
+  단 한 건도 테스트되지 않았다. JaCoCo 기준으로 해당 메서드 본문 전체(6라인)가 미실행 상태이며,
+  `toString()` 도 어떤 테스트에서도 직접 호출되지 않는다. Sample.java는 약 77라인으로,
+  미커버 라인이 10라인 이상이면 커버리지가 80% 아래로 떨어진다.
+  phase2.md 완료 기준에 `./gradlew jacocoTestReport` Model 커버리지 80% 이상이 명시되어 있으므로
+  현 상태로는 완료 기준 미충족 위험이 있다.
+- **권장 테스트 케이스 추가**:
   ```java
-  private InMemorySampleRepository repo;
+  @Test
+  void updateAvgProductionTime_0_은_예외() {
+      assertThrows(IllegalArgumentException.class,
+              () -> sample.updateAvgProductionTime(0));
+  }
 
-  @BeforeEach
-  void setUp() {
-      repo = new InMemorySampleRepository(); // 매 테스트마다 새 인스턴스 — 격리 보장
+  @Test
+  void updateAvgProductionTime_1_은_정상() {
+      sample.updateAvgProductionTime(1);
+      assertEquals(1, sample.getAvgProductionTime());
+  }
+
+  @Test
+  void updateStock_음수_는_예외() {
+      assertThrows(IllegalArgumentException.class,
+              () -> sample.updateStock(-1));
+  }
+
+  @Test
+  void updateStock_0_은_정상() {
+      sample.updateStock(0);
+      assertEquals(0, sample.getStock());
+  }
+
+  @Test
+  void toString_형식_검증() {
+      Sample s = new Sample(1L, "AlphaChip", 30, 0.95, 100);
+      assertTrue(s.toString().contains("AlphaChip"));
+      assertTrue(s.toString().contains("30"));
   }
   ```
 
 ---
 
-### [WARNING-5] placeholder 메서드에서 Phase별 확장 시 메서드 교체 vs. 추가 방식 미명시
+### [CRITICAL-2] findByNameContaining(null) 구현체 동작은 존재하나 테스트 미검증
 
-- **대상 기능**: 전체 5개 테스트 클래스의 `placeholder()` 메서드
-- **문제**: 각 테스트 클래스의 `placeholder()` 메서드는 `// Phase {N}에서 구현` 주석만 있고, 향후 Phase에서 이 메서드를 삭제하고 실질 테스트 메서드를 추가하는 것인지, 아니면 `placeholder()` 안에 assertions를 채우는 것인지 명시되어 있지 않다. 특히 `InMemorySampleRepositoryTest`는 Phase 2에서 10개 케이스가 생기므로 단일 `placeholder()` 메서드로 수용 불가하다. 명시 없이는 Phase 2~4 구현 시 일관성 없는 구조가 될 수 있다.
-- **권장 조치**: phase1.md 섹션 5 또는 각 테스트 클래스 주석에 "Phase {N} 구현 시 `placeholder()` 메서드를 삭제하고 해당 Phase의 테스트 케이스 메서드를 추가한다"는 한 줄 지침을 추가한다.
+- **대상 기능**: `InMemorySampleRepository.findByNameContaining()`
+- **문제**: 구현체(라인 39)에서 `keyword == null || keyword.isBlank()` 조건으로 null 입력 시
+  `findAll()` 을 반환한다. 그러나 phase2.md 5-3절 테스트 케이스 표에 null 케이스가 명시되지 않았고,
+  `InMemorySampleRepositoryTest` 에도 해당 테스트가 없다. 구현과 테스트 간 불일치가 존재하며,
+  Phase 3 Controller 에서 사용자 입력이 null 로 전달될 경우 동작 보장이 없다.
+  JaCoCo 기준으로 `keyword == null` 분기(true 경로)가 미커버된다.
+- **권장 테스트 케이스 추가**:
+  ```java
+  @Test
+  void findByNameContaining_null_전체_반환() {
+      repo.save(new Sample("AlphaChip", 30, 0.95, 100));
+      List<Sample> result = repo.findByNameContaining(null);
+      assertEquals(1, result.size());
+  }
+  ```
+  또는 null 입력을 허용하지 않을 경우 설계 문서에 `NullPointerException` 또는
+  `IllegalArgumentException` 발생을 명시하고, 구현체의 null 처리 분기를 제거한다.
+
+---
+
+### [WARNING-1] update* 메서드 정상 경로 전체 미테스트
+
+- **대상 기능**: `Sample.updateName()`, `Sample.updateAvgProductionTime()`, `Sample.updateYield()`, `Sample.updateStock()`
+- **문제**: `SampleTest` 에는 `updateYield(0.0)` 과 `updateName("")` 의 예외 경로만 있다.
+  4개 update 메서드 모두에 대해 "유효한 값 전달 시 필드가 실제로 변경되는지" 검증하는 정상 경로
+  테스트가 없다. 구현체가 값 갱신 없이 return 만 해도 현재 테스트로는 통과된다.
+- **권장 테스트**:
+  ```java
+  @Test
+  void updateName_정상_변경() {
+      sample.updateName("BetaChip");
+      assertEquals("BetaChip", sample.getName());
+  }
+
+  @Test
+  void updateYield_정상_변경() {
+      sample.updateYield(1.0);
+      assertEquals(1.0, sample.getYield());
+  }
+  ```
+
+---
+
+### [WARNING-2] save() null 입력 및 update(null) 에 대한 NPE 위험 — 설계 및 테스트 미명시
+
+- **대상 기능**: `InMemorySampleRepository.save()`, `InMemorySampleRepository.update()`
+- **문제**: 구현체에서 `save(null)` 호출 시 `sample.getName()` (라인 15)에서 NPE 가 발생하고,
+  `update(null)` 호출 시 `sample.getSampleId()` (라인 50)에서 NPE 가 발생한다.
+  phase2.md 설계 문서 어디에도 이 입력에 대한 동작 명세가 없다.
+  Phase 3 Controller 는 사용자 입력을 받아 save/update 를 호출하므로, null 방어가 어느 레이어에서
+  이루어지는지 명확히 해야 한다.
+- **권장 조치**: phase2.md 또는 phase3.md 에 "null Sample 입력은 Controller 레이어에서 방지한다"
+  또는 "Repository 인터페이스 계약상 null 인수는 허용되지 않는다" 를 명시한다.
+  인수가 null 일 경우 `IllegalArgumentException` 을 던지는 방어 코드를 추가하고 테스트로 검증하는
+  것을 권장한다.
+
+---
+
+### [WARNING-3] findAll() 방어적 복사 동작 테스트 없음
+
+- **대상 기능**: `InMemorySampleRepository.findAll()`
+- **문제**: 구현체는 `new ArrayList<>(store)` 로 방어적 복사를 반환한다(라인 27).
+  그러나 반환된 리스트를 수정해도 내부 `store` 가 변경되지 않는지 검증하는 테스트가 없다.
+  설계 문서(phase2.md 4절 표)에도 이 동작 보장이 테스트 케이스로 명시되지 않았다.
+  Phase 3 이후 Controller 나 View 가 반환 리스트를 수정할 경우 잠재적 버그 유입 경로가 된다.
+- **권장 테스트**:
+  ```java
+  @Test
+  void findAll_반환_리스트_수정이_저장소에_영향_없음() {
+      repo.save(new Sample("AlphaChip", 30, 0.95, 100));
+      List<Sample> result = repo.findAll();
+      result.clear();
+      assertEquals(1, repo.findAll().size());
+  }
+  ```
+
+---
+
+### [WARNING-4] updateName(null) 및 updateYield(1.1) 예외 케이스 미테스트
+
+- **대상 기능**: `Sample.updateName()`, `Sample.updateYield()`
+- **문제**: `updateName("")` 예외는 테스트되나 `updateName(null)` 은 테스트되지 않았다.
+  `updateYield(0.0)` 예외는 테스트되나 `updateYield(1.1)` (상한 초과) 은 테스트되지 않았다.
+  validate 로직과 update 메서드 내 검증 로직이 대칭적으로 작성되어 있으나,
+  테스트 케이스가 비대칭이다.
+- **권장 테스트**:
+  ```java
+  @Test
+  void updateName_null_은_예외() {
+      assertThrows(IllegalArgumentException.class,
+              () -> sample.updateName(null));
+  }
+
+  @Test
+  void updateYield_1_0_초과_는_예외() {
+      assertThrows(IllegalArgumentException.class,
+              () -> sample.updateYield(1.1));
+  }
+  ```
+
+---
+
+### [WARNING-5] Phase 3 진입 전 Mockito 의존성 추가 계획 미선행 확인
+
+- **대상 기능**: `build.gradle`, `SampleControllerTest` (Phase 3 예정)
+- **문제**: phase2.md 완료 기준에 `./gradlew test` 전 테스트 통과가 명시되어 있으나,
+  현재 `build.gradle` 에 Mockito 의존성이 없다. `PLAN.md Phase 3-0` 에
+  "Phase 3 구현 전 `build.gradle` 에 Mockito 추가" 가 명시되어 있으므로 Phase 2 단계에서의
+  누락은 아니다. 그러나 Phase 3 진입 시 build.gradle 수정을 놓칠 경우
+  `SampleControllerTest` 에서 컴파일 실패가 발생하므로, Phase 2 완료 체크리스트 또는 Phase 3
+  설계 문서(phase3.md) 작업 목록 최상단에 이 항목을 명시적으로 포함해야 한다.
+  현재 phase2.md 에는 해당 안내가 없다.
+- **권장 조치**: phase2.md 6절 완료 기준에 "Phase 3 진입 전 `build.gradle` Mockito 의존성 추가
+  확인" 항목을 추가하거나, phase3.md 작업 목록 첫 항목으로 재확인한다.
 
 ---
 
 ## 검증 결과 요약
 
-- [A] 테스트 계획 존재: ✅ — Phase 1 완료 기준에 `./gradlew test` 명시, 5개 테스트 클래스 모두 생성됨
-- [B] 엣지케이스 식별: ❌ — yield 경계 정확값(0.0/1.0), name 공백, findByNameContaining 빈 문자열 케이스 누락 (WARNING-2)
-- [C] 기존 테스트 충돌: ❌ — Phase 2 인터페이스 확장 시 placeholder 테스트 컴파일 실패 위험, regression 계획 없음 (WARNING-3)
-- [D] 테스트 구조: ❌ — 통합 테스트 패키지 미러링 원칙 위반 미명시 (WARNING-1), 픽스처 계획 부재 (WARNING-4), placeholder 확장 지침 없음 (WARNING-5), Mockito 의존성 계획 누락 (CRITICAL-1)
+- [A] 테스트 계획 존재: ✅ — phase2.md 5-2절(SampleTest 14개), 5-3절(Repository 12개) 케이스 전부 구현 파일에 1:1 대응 확인
+- [B] 엣지케이스 식별: ❌ — updateAvgProductionTime/updateStock 경계값 미테스트(CRITICAL-1), findByNameContaining(null) 미테스트(CRITICAL-2), updateName(null)/updateYield(1.1) 미테스트(WARNING-4)
+- [C] 기존 테스트 충돌: ✅ — SampleControllerTest/SampleViewTest/SampleFlowIntegrationTest 는 모두 placeholder 상태로 Phase 2 변경과 충돌 없음
+- [D] 테스트 구조: ❌ — @BeforeEach 픽스처는 격리 올바름, 그러나 update* 정상 경로 미검증(WARNING-1), save/update null 처리 미명시(WARNING-2), findAll 방어적 복사 미검증(WARNING-3)
